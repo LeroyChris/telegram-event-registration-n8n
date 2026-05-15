@@ -1,0 +1,1857 @@
+{
+  "name": "Workshop Ticket Bot - Registration",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "2a4dbd62-3889-4405-873b-1a67aae6e0b7",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -688,
+        -240
+      ],
+      "webhookId": "workshop-ticket-bot",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_CREDENTIAL_ID_HERE",
+          "name": "workshop ticket bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Extract & normalise every Telegram update into a flat object ──\nconst upd = $input.first().json;\nlet out = {\n  update_type: 'unknown',\n  chat_id: null,\n  text: null,\n  callback_data: null,\n  callback_query_id: null,\n  first_name: ''\n};\n\nif (upd.callback_query) {\n  out.update_type    = 'callback';\n  out.chat_id        = String(upd.callback_query.from.id);\n  out.callback_data  = upd.callback_query.data;\n  out.callback_query_id = upd.callback_query.id;\n  out.first_name     = upd.callback_query.from.first_name || '';\n} else if (upd.message) {\n  out.update_type = 'message';\n  out.chat_id     = String(upd.message.chat.id);\n  out.text        = (upd.message.text || '').trim();\n  out.first_name  = upd.message.from.first_name || '';\n}\n\nreturn [{ json: out }];"
+      },
+      "id": "3a562d0b-16c3-4cea-be42-77c9b18e35ab",
+      "name": "Extract Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rc1",
+                    "leftValue": "={{ $json.update_type }}",
+                    "rightValue": "callback",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Callback"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rc2",
+                    "leftValue": "={{ $json.update_type }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Message"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b4fe1460-2090-4de5-b2ba-15c9484680b8",
+      "name": "Route: Callback or Message?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -16,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse callback_data like: fac_UUID, evt_UUID, cat_UUID\nconst raw = $json.callback_data || '';\nconst underscore = raw.indexOf('_');\nconst prefix = raw.substring(0, underscore);   // fac | evt | cat\nconst uuid   = raw.substring(underscore + 1);  // the UUID\n\nreturn [{\n  json: {\n    ...$json,\n    cb_prefix: prefix,\n    cb_uuid:   uuid\n  }\n}];"
+      },
+      "id": "10d4b1a4-4093-4245-b05b-c9dc658ff57b",
+      "name": "Parse Callback Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cb1",
+                    "leftValue": "={{ $json.cb_prefix }}",
+                    "rightValue": "fac",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Faculty Selected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cb2",
+                    "leftValue": "={{ $json.cb_prefix }}",
+                    "rightValue": "evt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Event Selected"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cb3",
+                    "leftValue": "={{ $json.cb_prefix }}",
+                    "rightValue": "cat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Category Selected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "20b59cbc-60c2-4e0f-88a9-9e75696e4c23",
+      "name": "Route: Which Callback?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        432,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/events",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "faculty_id",
+              "value": "=eq.{{ $json.cb_uuid }}"
+            },
+            {
+              "name": "is_active",
+              "value": "eq.true"
+            },
+            {
+              "name": "select",
+              "value": "id,title,event_date,location"
+            },
+            {
+              "name": "order",
+              "value": "event_date.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ce9ba469-322d-4170-a18e-e5c9d3299e61",
+      "name": "Supabase: Fetch Events for Faculty",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        -544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Telegram inline keyboard from events array\nconst events   = $input.all();\nconst chat_id  = $('Parse Callback Data').item.json.chat_id;\nconst cbQueryId= $('Parse Callback Data').item.json.callback_query_id;\nconst token    = $('Config Credential').item.json.BOT_TOKEN;\n\nif (!events || events.length === 0) {\n  return [{ json: {\n    chat_id, token, cb_query_id: cbQueryId,\n    text: '😔 Belum ada event aktif untuk fakultas ini. Cek lagi nanti ya!',\n    keyboard: null\n  }}];\n}\n\nconst keyboard = events.map(e => {\n  const d = new Date(e.json.event_date);\n  const label = `📅 ${e.json.title} — ${d.toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'})}`;\n  return [{ text: label, callback_data: `evt_${e.json.id}` }];\n});\n\nreturn [{ json: {\n  chat_id, token, cb_query_id: cbQueryId,\n  text: '🎓 Pilih *workshop* yang ingin kamu daftar:',\n  keyboard\n}}];"
+      },
+      "id": "7b3cb79d-5f28-4b4b-9563-a0c85a00f500",
+      "name": "Build: Event Keyboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.token }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: 'Markdown', reply_markup: $json.keyboard ? { inline_keyboard: $json.keyboard } : undefined }) }}",
+        "options": {}
+      },
+      "id": "1d455984-6559-4b0e-9ccf-7ed13c50d159",
+      "name": "Telegram: Send Event List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1088,
+        -544
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/ticket_categories",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "event_id",
+              "value": "=eq.{{ $json.cb_uuid }}"
+            },
+            {
+              "name": "select",
+              "value": "id,name,slug,price,available_seats,total_seats"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a1996c4-3c10-4325-95ad-bf94597c3dce",
+      "name": "Supabase: Fetch Categories for Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build category keyboard with seat counts\nconst cats     = $input.all();\nconst chat_id  = $('Parse Callback Data').item.json.chat_id;\nconst token    = $('Config Credential').item.json.BOT_TOKEN;\nconst cbQueryId= $('Parse Callback Data').item.json.callback_query_id;\n\nconst keyboard = cats.map(c => {\n  const cat    = c.json;\n  const seats  = cat.available_seats;\n  const price  = cat.price > 0 ? `Rp ${Number(cat.price).toLocaleString('id-ID')}` : 'GRATIS';\n  const status = seats > 0 ? `✅ ${seats} kursi` : '❌ Penuh';\n  const label  = `${cat.name} — ${price} (${status})`;\n  // Disable button if no seats (send a no-op callback)\n  const cb_data = seats > 0 ? `cat_${cat.id}` : `full_${cat.id}`;\n  return [{ text: label, callback_data: cb_data }];\n});\n\nconst msgLines = cats.map(c => {\n  const p = c.json.price > 0 ? `Rp ${Number(c.json.price).toLocaleString('id-ID')}` : 'Gratis';\n  return `• *${c.json.name}* — ${p} | Sisa: ${c.json.available_seats}/${c.json.total_seats} kursi`;\n}).join('\\n');\n\nreturn [{ json: {\n  chat_id, token, cb_query_id: cbQueryId,\n  text: `🎟️ *Pilih kategori tiket:*\\n\\n${msgLines}\\n\\n_Klik tombol di bawah untuk memilih:_`,\n  keyboard\n}}];"
+      },
+      "id": "28f2545a-93b2-4bc8-a3de-7988f60d3772",
+      "name": "Build: Category Keyboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.token }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: 'Markdown', reply_markup: { inline_keyboard: $json.keyboard } }) }}",
+        "options": {}
+      },
+      "id": "37ab1ec6-75ed-4a26-ba03-b5521509fe7d",
+      "name": "Telegram: Send Category List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1088,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $('Parse Callback Data').item.json.chat_id, category_id: $('Parse Callback Data').item.json.cb_uuid, state: 'awaiting_name', full_name: null, nim: null, updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "0f90b8d6-5328-41c5-8ce5-d0de3abd0e3f",
+      "name": "Supabase: Save Session — Category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $('Parse Callback Data').item.json.chat_id, text: '📝 Kategori dipilih! Sekarang ketik *nama lengkap* kamu:', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "9aa4500b-584b-45ae-b646-6bdf3b66ab6a",
+      "name": "Telegram: Ask Full Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "msg1",
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "/start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "/start Command"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "msg2",
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "/cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "/cancel Command"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "msg3",
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "={{ $json.text }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Regular Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3fc993dd-89b4-4b74-bade-60c9d2ae17d4",
+      "name": "Route: /start, /cancel, or Text?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        176,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/faculties",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,code"
+            },
+            {
+              "name": "order",
+              "value": "code.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d35dc7f7-a4dd-4d5f-b377-a35b7aac1dda",
+      "name": "Supabase: Fetch Faculties",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build faculty selection keyboard\nconst faculties = $input.all();\nconst chat_id   = $('Config Credential').item.json.chat_id;\nconst first_name= $('Config Credential').item.json.first_name;\nconst token     = $('Config Credential').item.json.BOT_TOKEN;\n\nconst keyboard = faculties.map(f => [\n  { text: `🏛️ ${f.json.name} (${f.json.code})`, callback_data: `fac_${f.json.id}` }\n]);\n\nconst welcome = `Halo *${first_name || 'Mahasiswa'}*! 👋\\n\\n`\n  + `Selamat datang di *Workshop Registration Bot*!\\n\\n`\n  + `Langkah pendaftaran:\\n`\n  + `1️⃣ Pilih *fakultas* kamu\\n`\n  + `2️⃣ Pilih *workshop* yang tersedia\\n`\n  + `3️⃣ Pilih kategori tiket\\n`\n  + `4️⃣ Isi nama, NIM, dan email\\n`\n  + `5️⃣ Terima kode booking ✅\\n\\n`\n  + `*Pilih fakultasmu:*`;\n\nreturn [{ json: { chat_id, token, text: welcome, keyboard } }];"
+      },
+      "id": "8693f4e1-c2ed-47d3-a920-567efc933213",
+      "name": "Build: Faculty Keyboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.token }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.text, parse_mode: 'Markdown', reply_markup: { inline_keyboard: $json.keyboard } }) }}",
+        "options": {}
+      },
+      "id": "39821766-0f03-4baf-ae4d-3917a7c147ea",
+      "name": "Telegram: Send Welcome + Faculty Menu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "=eq.{{ $json.chat_id }}"
+            },
+            {
+              "name": "select",
+              "value": "chat_id,state,category_id,full_name,nim"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a03e1694-49b3-4bbe-8a8a-93aa2c1e6cc2",
+      "name": "Supabase: Get Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten Supabase array response to a single session object (or nulls)\nconst rows = $input.all();\nconst chat_id = $('Config Credential').item.json.chat_id;\nconst text    = $('Config Credential').item.json.text;\n\nif (!rows || rows.length === 0 || !rows[0].json || (Array.isArray(rows[0].json) && rows[0].json.length === 0)) {\n  return [{ json: { chat_id, text, state: 'no_session', category_id: null, full_name: null, nim: null } }];\n}\n\nconst session = Array.isArray(rows[0].json) ? rows[0].json[0] : rows[0].json;\nreturn [{ json: { chat_id, text, ...session } }];"
+      },
+      "id": "5988908a-22d3-4303-a4a8-b12d7fa87dd6",
+      "name": "Extract Session Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "ss1",
+                    "leftValue": "={{ $json.state }}",
+                    "rightValue": "awaiting_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "ss2",
+                    "leftValue": "={{ $json.state }}",
+                    "rightValue": "awaiting_nim",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting NIM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "ss3",
+                    "leftValue": "={{ $json.state }}",
+                    "rightValue": "awaiting_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "ss4",
+                    "leftValue": "={{ $json.state }}",
+                    "rightValue": "no_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "No Session"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "385e0b72-eafc-472d-957e-790a79ba538f",
+      "name": "Route: Session State?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        864,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "=eq.{{ $json.chat_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ full_name: $json.text, state: 'awaiting_nim', updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "e029909c-bbc6-4f9e-8fd3-df1efe49bcd6",
+      "name": "Supabase: Save Name → Ask NIM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $('Extract Session Row').item.json.chat_id, text: '🎓 Nama tersimpan! Sekarang ketik *NIM* kamu\\n_(Jika bukan mahasiswa, ketik: `-`)_', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "f2bb2813-a82a-4cc2-8b8a-7ac00dfc56ee",
+      "name": "Telegram: Ask NIM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "=eq.{{ $json.chat_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ nim: $json.text === '-' ? null : $json.text, state: 'awaiting_email', updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "013de3cd-dcd6-4cef-b950-a33aa15b7a52",
+      "name": "Supabase: Save NIM → Ask Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $('Extract Session Row').item.json.chat_id, text: '📧 NIM tersimpan! Sekarang ketik *email aktif* kamu\\n_(Kode booking akan dikirim ke email ini)_', parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "122ae17f-d256-4024-8cac-9fda8d9d0b0b",
+      "name": "Telegram: Ask Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate email and prepare booking data\nconst session = $('Extract Session Row').item.json;\nconst email   = session.text.trim().toLowerCase();\n\nconst emailOk = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\nif (!emailOk) {\n  return [{ json: { valid: false, chat_id: session.chat_id, error: `❌ Format email *${email}* tidak valid.\\nCoba lagi, ketik email yang benar:` } }];\n}\n\nreturn [{ json: {\n  valid:       true,\n  chat_id:     session.chat_id,\n  email:       email,\n  full_name:   session.full_name,\n  nim:         session.nim,\n  category_id: session.category_id\n}}];"
+      },
+      "id": "c6246d4e-b4ef-4430-9105-3257bd6b2a91",
+      "name": "Validate Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "val1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3f22800-fd42-44b5-950a-7a26f8221b5e",
+      "name": "Is Email Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, text: $json.error, parse_mode: 'Markdown' }) }}",
+        "options": {}
+      },
+      "id": "c25705e1-b3b5-46e1-8f04-1fcfb053db45",
+      "name": "Telegram: Email Invalid — Ask Again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/students",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ email: $json.email, full_name: $json.full_name, nim: $json.nim }) }}",
+        "options": {}
+      },
+      "id": "4abb484c-9efe-477b-a166-a1750e947c98",
+      "name": "Supabase: Upsert Student",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1536,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract student_id from Supabase upsert response\n// Also build a booking code like FIK-WS-2025-0001\nconst rows = $input.all();\nconst student = Array.isArray(rows[0].json) ? rows[0].json[0] : rows[0].json;\nconst year    = new Date().getFullYear();\nconst rand    = String(Math.floor(Math.random() * 9000) + 1000); // fallback random 4-digit\nconst code    = `WS-${year}-${rand}`;\n\nreturn [{ json: {\n  student_id:   student.id,\n  booking_code: code,\n  email:        student.email,\n  full_name:    student.full_name,\n  category_id:  $('Validate Email').item.json.category_id,\n  chat_id:      $('Validate Email').item.json.chat_id\n}}];"
+      },
+      "id": "765351ef-6e5c-4ca1-8bbe-31539bcb3bf2",
+      "name": "Extract Student ID + Build Booking Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/rpc/book_ticket",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ p_student_id: $json.student_id, p_ticket_category_id: $json.category_id, p_booking_code: $json.booking_code }) }}",
+        "options": {}
+      },
+      "id": "f0d6f68c-cf60-4ffe-b69f-e094669bee2a",
+      "name": "Supabase RPC: book_ticket()",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten RPC response\nconst rows = $input.all();\nconst result = Array.isArray(rows[0].json) ? rows[0].json[0] : rows[0].json;\nreturn [{ json: {\n  success:     result.success,\n  message:     result.message,\n  booking_id:  result.booking_id,\n  chat_id:     $('Extract Student ID + Build Booking Code').item.json.chat_id,\n  booking_code:$('Extract Student ID + Build Booking Code').item.json.booking_code,\n  full_name:   $('Extract Student ID + Build Booking Code').item.json.full_name,\n  email:       $('Extract Student ID + Build Booking Code').item.json.email\n}}];"
+      },
+      "id": "80e94072-4499-4c59-9cf8-1302719f492e",
+      "name": "Extract Booking Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "bk1",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "875316fd-5c16-4b08-b78a-ffdca37f40aa",
+      "name": "Booking Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "=eq.{{ $json.chat_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f984a133-f8f2-464e-9cf0-8df2946801cd",
+      "name": "Supabase: Clear Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2576,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  chat_id: $('Extract Booking Result').item.json.chat_id,\n  parse_mode: 'HTML',\n  text: '🎉 <b>Pendaftaran Berhasil!</b>\\n\\n' +\n        '━━━━━━━━━━━━━━━━━━\\n' +\n        '🎫 <b>BOOKING KONFIRMASI</b>\\n' +\n        '━━━━━━━━━━━━━━━━━━\\n\\n' +\n        '👤 <b>Nama:</b> ' + $('Extract Booking Result').item.json.full_name + '\\n' +\n        '📧 <b>Email:</b> ' + $('Extract Booking Result').item.json.email + '\\n' +\n        '🎟️ <b>Kode Booking:</b> <code>' + $('Extract Booking Result').item.json.booking_code + '</code>\\n\\n' +\n        '⚠️ <i>Screenshot atau catat kode ini.</i> Tunjukkan saat check-in.\\n\\n' +\n        'Sampai jumpa di acara! 🚀'\n}) }}",
+        "options": {}
+      },
+      "id": "81f3c460-d2b0-4a73-892b-9e6b49bedb07",
+      "name": "Telegram: Send Booking Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2816,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, parse_mode: 'Markdown', text: `❌ *Pendaftaran Gagal*\\n\\n_${$json.message}_\\n\\nKetik /start untuk mulai ulang.` }) }}",
+        "options": {}
+      },
+      "id": "a943ff6a-26bb-42be-a1c9-b216e77e260c",
+      "name": "Telegram: Send Booking Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2608,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $json.chat_id, parse_mode: 'Markdown', text: '👋 Halo! Ketik /start untuk memulai pendaftaran workshop.' }) }}",
+        "options": {}
+      },
+      "id": "d47fa146-60df-4d4c-a424-b189ae798330",
+      "name": "Telegram: No Session — Ask /start",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config Credential').item.json.SUPABASE_URL }}/rest/v1/bot_sessions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "=eq.{{ $json.chat_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config Credential').item.json.SUPABASE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ state: 'no_session', updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "aa7c6672-abcf-4e93-9e13-1c8cdcae31d3",
+      "name": "Supabase: Reset Session on /cancel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Config Credential').item.json.BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ chat_id: $('Config Credential').item.json.chat_id, parse_mode: 'Markdown', text: '🔄 Pendaftaran dibatalkan.\\n\\nKetik /start untuk memulai ulang.' }) }}",
+        "options": {}
+      },
+      "id": "eff9c9bd-58e3-41a0-a471-efafc6986eed",
+      "name": "Telegram: Confirm Cancel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        608,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Config Credential').item.json.SMTP_FROM || 'noreply@workshop.ac.id' }}",
+        "toEmail": "={{ $('Extract Booking Result').item.json.email }}",
+        "subject": "={{ '✅ Booking Dikonfirmasi — ' + $('Extract Booking Result').item.json.booking_code }}",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n</head>\n<body style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9; padding: 20px; margin: 0;\">\n\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">\n    \n    <div style=\"background-color: #4CAF50; padding: 20px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px;\">🎉 Pendaftaran Berhasil!</h1>\n    </div>\n\n    <div style=\"padding: 30px;\">\n      \n      <div style=\"text-align: center; margin-bottom: 25px;\">\n        <h2 style=\"margin: 0; color: #333333; font-size: 18px; letter-spacing: 1px; border-bottom: 2px solid #eeeeee; padding-bottom: 10px; display: inline-block;\">\n          BOOKING KONFIRMASI\n        </h2>\n      </div>\n\n      <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n        <tr>\n          <td style=\"padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #555555; width: 30%;\">👤 <strong>Nama:</strong></td>\n          <td style=\"padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #222222; font-weight: 500;\">\n            {{ $('Extract Booking Result').item.json.full_name }}\n          </td>\n        </tr>\n        <tr>\n          <td style=\"padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #555555;\">📧 <strong>Email:</strong></td>\n          <td style=\"padding: 12px 0; border-bottom: 1px solid #f0f0f0; color: #222222; font-weight: 500;\">\n            {{ $('Extract Booking Result').item.json.email }}\n          </td>\n        </tr>\n      </table>\n\n      <div style=\"background-color: #f4f4f4; border: 1px dashed #cccccc; padding: 15px; border-radius: 6px; text-align: center; margin-bottom: 25px;\">\n        <div style=\"color: #555555; font-size: 14px; margin-bottom: 8px;\">🎟️ <strong>Kode Booking Anda:</strong></div>\n        <div style=\"font-family: monospace; font-size: 20px; font-weight: bold; color: #d32f2f; letter-spacing: 1px; word-break: break-word;\">\n          {{ $('Extract Booking Result').item.json.booking_code }}\n        </div>\n      </div>\n\n      <div style=\"background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; color: #665000; font-size: 14px; margin-bottom: 25px;\">\n        ⚠️ <em>Screenshot email ini atau catat kode booking di atas.</em> Harap tunjukkan saat proses check-in.\n      </div>\n\n      <p style=\"text-align: center; color: #444444; font-size: 16px; margin: 0; font-weight: 500;\">\n        Sampai jumpa di acara! 🚀\n      </p>\n\n    </div>\n  </div>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2816,
+        80
+      ],
+      "id": "234cee96-4018-452d-b9c6-f87151ee5258",
+      "name": "Send Confirmation Email",
+      "webhookId": "3a8c9663-1079-45fb-bca1-0934ad595c16",
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_CREDENTIAL_ID_HERE",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-1",
+              "name": "SUPABASE_URL",
+              "value": "YOUR_SUPABASE_URL_HERE",
+              "type": "string"
+            },
+            {
+              "id": "cfg-2",
+              "name": "SUPABASE_KEY",
+              "value": "YOUR_SUPABASE_API_KEY_HERE",
+              "type": "string"
+            },
+            {
+              "id": "cfg-3",
+              "name": "BOT_TOKEN",
+              "value": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+              "type": "string"
+            },
+            {
+              "id": "236bb52c-d3f9-441e-86a6-4a96d222c393",
+              "name": "SMTP_FROM",
+              "value": "YOUR_SMTP_FROM_EMAIL_HERE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8f903a25-1386-4e0f-be44-f91df4a5e758",
+      "name": "Config Credential",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        -240
+      ]
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 565615743,
+          "message": {
+            "message_id": 52,
+            "from": {
+              "id": 7023490065,
+              "is_bot": false,
+              "first_name": "Roy",
+              "username": "washedcomp",
+              "language_code": "id"
+            },
+            "chat": {
+              "id": 7023490065,
+              "first_name": "Roy",
+              "username": "washedcomp",
+              "type": "private"
+            },
+            "date": 1777789610,
+            "text": "Leroy Christopher Gerson"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Update": {
+      "main": [
+        [
+          {
+            "node": "Config Credential",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Callback or Message?": {
+      "main": [
+        [
+          {
+            "node": "Parse Callback Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route: /start, /cancel, or Text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Callback Data": {
+      "main": [
+        [
+          {
+            "node": "Route: Which Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Which Callback?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Events for Faculty",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Fetch Categories for Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Save Session — Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Events for Faculty": {
+      "main": [
+        [
+          {
+            "node": "Build: Event Keyboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build: Event Keyboard": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Send Event List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Categories for Event": {
+      "main": [
+        [
+          {
+            "node": "Build: Category Keyboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build: Category Keyboard": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Send Category List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Save Session — Category": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Ask Full Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: /start, /cancel, or Text?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Faculties",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Reset Session on /cancel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Get Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch Faculties": {
+      "main": [
+        [
+          {
+            "node": "Build: Faculty Keyboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build: Faculty Keyboard": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Send Welcome + Faculty Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Reset Session on /cancel": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Confirm Cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Get Session": {
+      "main": [
+        [
+          {
+            "node": "Extract Session Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Session Row": {
+      "main": [
+        [
+          {
+            "node": "Route: Session State?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route: Session State?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Save Name → Ask NIM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase: Save NIM → Ask Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: No Session — Ask /start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Save Name → Ask NIM": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Ask NIM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Save NIM → Ask Email": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Ask Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Email": {
+      "main": [
+        [
+          {
+            "node": "Is Email Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Email Valid?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Upsert Student",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: Email Invalid — Ask Again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Upsert Student": {
+      "main": [
+        [
+          {
+            "node": "Extract Student ID + Build Booking Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Student ID + Build Booking Code": {
+      "main": [
+        [
+          {
+            "node": "Supabase RPC: book_ticket()",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase RPC: book_ticket()": {
+      "main": [
+        [
+          {
+            "node": "Extract Booking Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Booking Result": {
+      "main": [
+        [
+          {
+            "node": "Booking Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Successful?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Clear Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: Send Booking Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Clear Session": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram: Send Booking Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        []
+      ]
+    },
+    "Config Credential": {
+      "main": [
+        [
+          {
+            "node": "Route: Callback or Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a9dbcdcc-65c6-4272-84de-73f2b992ff01",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92efbc70f83f789a3d149b3803303ef8a1aebe0cca34d6f76b4acd0150f7c278"
+  },
+  "id": "6p4SRLPl8sduXEw6",
+  "tags": [
+    {
+      "updatedAt": "2026-05-03T05:36:53.632Z",
+      "createdAt": "2026-05-03T05:36:53.632Z",
+      "id": "0q7fyN5phtoWqWbr",
+      "name": "registration"
+    },
+    {
+      "updatedAt": "2026-05-03T05:36:53.625Z",
+      "createdAt": "2026-05-03T05:36:53.625Z",
+      "id": "DaH7xh3ScbPGRkz0",
+      "name": "telegram"
+    },
+    {
+      "updatedAt": "2026-05-03T05:36:53.613Z",
+      "createdAt": "2026-05-03T05:36:53.613Z",
+      "id": "ShDYXzYTIiEbeYaE",
+      "name": "workshop"
+    }
+  ]
+}
