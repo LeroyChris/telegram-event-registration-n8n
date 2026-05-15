@@ -78,7 +78,7 @@ Ensure you have **Docker** and **Docker Compose** installed on your host system.
 ### Steps
 1. Clone this repository to your local directory:
    ```bash
-   git clone https://github.com
+   git clone https://github.com/LeroyChris/telegram-event-registration-n8n
    cd telegram-event-registration-n8n/docker
    ```
 2. Initialize the containers in detached mode:
